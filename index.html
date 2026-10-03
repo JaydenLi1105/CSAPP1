@@ -77,24 +77,84 @@
         </p>
 		<p>
 			
-			<div style="display:inline-block;">
+
 			            2.3.晶体管电路的基本单元
 
-			<br/>&nbsp;&nbsp;NMOS
-			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 0（低电位） → NMOS 关闭
-			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 1（高电位） → NMOS 导通
-			</div>
-			<div style="display:inline-block;margin-left:100px">
-			<br/>&nbsp;&nbsp;PMOS
-			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 0（低电位） → NMOS 导通
-			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 1（高电位） → NMOS 关闭
-			</div>
-
         </p>
-			<img style="width:400px;margin:30px" src="img3.png" alt="示例图片">
+			<img style="width:800px;margin:30px" src="img2.png" alt="示例图片">
     </div>
 	
+	
+	<div class="section">
+        <div class="section-title">3.逻辑门模型</div>
+        <p>
+            以与门为例，把一个 bit 的逻辑电路复制很多份，<span class="impt">所有 bit 并行计算</span>
+        </p>
+		<p>
+			<a href="./and8_debug_simultaneous.html" target="_blank">
+				逻辑运算演示
+			</a>      
+		</p>
+		<a href="./and8_debug_simultaneous.html" target="_blank">
+		    <img src="img4.png" style="width:500px" alt="示例图片">
+		</a>
+    </div>
 	<hr/>
+	<div class="section">
+        <div class="section-title">4.加法器模型</div>
+        <p>
+            逻辑门不仅可以判断 0 和 1，还可以组合成能够执行数学运算的电路。
+        </p>
+		<p>
+			<a href="./ha_fa_8bit_simple_fly.html" target="_blank">
+				加法器演示
+			</a>      
+		</p>
+		<a href="./ha_fa_8bit_simple_fly.html" target="_blank">
+		    <img src="img5.png" style="width:500px" alt="示例图片">
+		</a>
+    </div>
+	
+		<div class="section">
+        <div class="section-title">5.算术逻辑单元(ALU)模型</div>
+        <p>
+            ALU 则把这些电路组合起来：
+			AND 电路
+			,OR 电路
+			,XOR 电路
+			,加法器
+			,减法
+			,比较电路
+        </p>
+		<p>
+			<a href="./flow_ir_mux_result.html" target="_blank">
+				算术逻辑单元演示
+			</a>      
+		</p>
+		<a href="./flow_ir_mux_result.html" target="_blank">
+		    <img src="img6.png" style="width:500px" alt="示例图片">
+		</a>
+    </div>
+	
+			<div class="section">
+        <div class="section-title">6.浮点运算单元(FPU)模型</div>
+        <p>
+IEEE 754 浮点数通常被拆成：
+
+符号位
+,指数
+,尾数
+。浮点加法并不是直接把所有 bit 当作一个整数相加。
+        </p>
+		<p>
+			<a href="./fpu_flow_animated_1_5_plus_0_5.html" target="_blank">
+				浮点运算单元
+			</a>      
+		</p>
+		<a href="./fpu_flow_animated_1_5_plus_0_5.html" target="_blank">
+		    <img src="img7.png" style="width:500px" alt="示例图片">
+		</a>
+    </div>
 	
 </div>
 </body>
