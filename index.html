@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>博客示例</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            width: 1080px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+
+        .main-title {
+            text-align: center;
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 40px;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .section img {
+            width: 100%;
+            height: auto;
+            margin: 15px 0;
+        }
+
+        .section p {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #333;
+        }
+		.impt{
+		     display:inline;
+			color: #f00;
+			font: 7;
+		}
+    </style>
+</head>
+<body>
+<div style = "width:1080px;margin:0 auto;padding:50px;background:#accf69">
+
+    <div class="section">
+        <div class="section-title">1.开关电路</div>
+        <p>
+            物理电路中可以通过控制不同开关的状态，实现<span class="impt">回路/断路</span>，因此不同电路的组合就能体现复杂的逻辑
+        </p>
+		
+		    <img src="img1.png" style="width:500px" alt="示例图片">
+    </div>
+	
+	<div class="section">
+        <div class="section-title">2.晶体管电路</div>
+        <p>
+            2.1.<span class="impt">机械开关</span>用电磁铁的原理实现了电动控制电路，但由于机械开关运转中带有机械运动，就会造成元件<span class="impt">磨损</span>，且速度较慢，<br/>&nbsp;不适合用来集成复杂的计算机电路
+        </p>
+		<p>
+            2.2.经过机械开关 -> 电子管 -> 晶体管的发展，能制造出大量的晶体管集成在芯片上的<span class="impt">集成电路</span>
+        </p>
+		<p>
+			
+			<div style="display:inline-block;">
+			            2.3.晶体管电路的基本单元
+
+			<br/>&nbsp;&nbsp;NMOS
+			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 0（低电位） → NMOS 关闭
+			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 1（高电位） → NMOS 导通
+			</div>
+			<div style="display:inline-block;margin-left:100px">
+			<br/>&nbsp;&nbsp;PMOS
+			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 0（低电位） → NMOS 导通
+			<br/>&nbsp;&nbsp;&nbsp;&nbsp;G = 1（高电位） → NMOS 关闭
+			</div>
+
+        </p>
+			<img style="width:400px;margin:30px" src="img3.png" alt="示例图片">
+    </div>
+	
+	<hr/>
+	
+</div>
+</body>
+</html>
