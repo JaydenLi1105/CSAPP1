@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Flow图：IR -> 运算器 -> MUX -> 结果寄存器</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f4f7fb;
+    color: #203247;
+  }
+  .wrap {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 18px;
+  }
+  h1 {
+    text-align: center;
+    color: #173d78;
+    margin: 6px 0 8px;
+  }
+  .desc {
+    text-align: center;
+    color: #627588;
+    margin-bottom: 14px;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+  button, select {
+    border-radius: 10px;
+    font-size: 15px;
+    padding: 10px 14px;
+  }
+  button {
+    border: none;
+    cursor: pointer;
+    color: white;
+    background: #2f6fed;
+  }
+  button:hover { opacity: .92; }
+  .secondary { background: #7b8795; }
+  .green { background: #229b58; }
+  select {
+    border: 2px solid #c9d9ec;
+    background: white;
+    color: #24415f;
+  }
+  .status {
+    background: white;
+    border: 2px solid #d7e4f3;
+    border-radius: 14px;
+    padding: 12px 16px;
+    min-height: 56px;
+    margin-bottom: 16px;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  .stage {
+    position: relative;
+    background: white;
+    border: 2px solid #d7e4f3;
+    border-radius: 22px;
+    min-height: 960px;
+    overflow: hidden;
+    padding: 20px;
+  }
+
+  .floating-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  .flow {
+    position: relative;
+    width: 100%;
+    min-height: 920px;
+  }
+
+  .node {
+    position: absolute;
+    background: #fbfdff;
+    border: 3px solid #d5e2f1;
+    border-radius: 18px;
+    box-shadow: 0 6px 14px rgba(0,0,0,.04);
+    transition: .25s;
+    z-index: 10;
+  }
+
+  .node.hot {
+    border-color: #ffaf2f;
+    box-shadow: 0 0 0 5px rgba(255,175,47,.14);
+    background: #fffaf0;
+  }
+
+  .node.green {
+    border-color: #39b76d !important;
+    background: #eefcf3 !important;
+    box-shadow: 0 0 0 5px rgba(57,183,109,.12), 0 0 18px rgba(57,183,109,.12);
+  }
+
+  .node.yellow {
+    border-color: #e3ba4d !important;
+    background: #fff8e7 !important;
+  }
+
+  .node.red {
+    border-color: #e78383 !important;
+    background: #fff2f2 !important;
+  }
+
+  .node-title {
+    font-size: 24px;
+    font-weight: 900;
+    text-align: center;
+    color: #173d78;
+    margin-bottom: 8px;
+  }
+
+  .small-note {
+    text-align: center;
+    color: #63778b;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .bits {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .bit {
+    width: 38px;
+    height: 38px;
+    margin: auto;
+    border-radius: 10px;
+    border: 2px solid #cad8e6;
+    background: #f4f8fc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: #728497;
+  }
+  .bit.one {
+    background: #e4f7e8;
+    border-color: #92d4a4;
+    color: #136536;
+  }
+  .bit.zero {
+    background: #eef4fa;
+    color: #53667a;
+  }
+
+  #irNode {
+    width: 320px;
+    left: 50%;
+    top: 24px;
+    transform: translateX(-50%);
+    padding: 16px;
+    text-align: center;
+  }
+  .ir-main {
+    font-family: Consolas, monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: #284668;
+    margin-bottom: 6px;
+  }
+  .ir-sub {
+    font-family: Consolas, monospace;
+    font-size: 16px;
+    color: #64788c;
+  }
+
+  #andNode, #orNode, #notNode {
+    width: 290px;
+    top: 280px;
+    padding: 14px 14px 18px;
+  }
+  #andNode { left: 70px; }
+  #orNode  { left: 50%; transform: translateX(-50%); }
+  #notNode { right: 70px; }
+
+  .expr {
+    text-align: center;
+    font-family: Consolas, monospace;
+    color: #4b6075;
+    margin-top: 6px;
+  }
+
+  #muxNode {
+    width: 320px;
+    left: 50%;
+    top: 600px;
+    transform: translateX(-50%);
+    padding: 18px 16px;
+    text-align: center;
+  }
+  .mux-main {
+    font-size: 30px;
+    font-weight: 900;
+    color: #355371;
+    margin-bottom: 10px;
+  }
+  .mux-select {
+    display: inline-block;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 2px dashed #b7cae1;
+    background: #f8fbfe;
+    font-weight: 900;
+    color: #6b7f92;
+    font-family: Consolas, monospace;
+    min-width: 120px;
+  }
+  .mux-select.active {
+    border-style: solid;
+    border-color: #2ba457;
+    color: #16713a;
+    background: #e7f8eb;
+    box-shadow: 0 0 0 4px rgba(43,164,87,.14);
+  }
+
+  #resultNode {
+    width: 360px;
+    left: 50%;
+    top: 800px;
+    transform: translateX(-50%);
+    padding: 16px;
+    text-align: center;
+  }
+  .result-box {
+    min-height: 72px;
+    border-radius: 14px;
+    border: 2px dashed #b8cae1;
+    background: #f8fbfe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Consolas, monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: #375270;
+    transition: .25s;
+  }
+  .result-box.filled {
+    border-style: solid;
+    border-color: #78a8e9;
+    background: #eaf2ff;
+    box-shadow: 0 0 0 4px rgba(120,168,233,.14);
+  }
+
+  .op-symbol {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
+  .result-mini {
+    margin-top: 8px;
+  }
+
+  svg.connector-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 920px;
+    z-index: 1;
+    overflow: visible;
+  }
+  .line {
+    stroke: #b7cbe2;
+    stroke-width: 5;
+    fill: none;
+    stroke-linecap: round;
+    transition: .25s;
+  }
+  .line.active {
+    stroke: #ffae2c;
+    filter: drop-shadow(0 0 5px rgba(255,174,44,.45));
+  }
+  .line.green {
+    stroke: #2ba457;
+    filter: drop-shadow(0 0 6px rgba(43,164,87,.4));
+  }
+
+  .arrowhead {
+    fill: #b7cbe2;
+  }
+  .arrowhead.active {
+    fill: #ffae2c;
+  }
+  .arrowhead.green {
+    fill: #2ba457;
+  }
+
+  .token {
+    position: absolute;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 900;
+    box-shadow: 0 8px 18px rgba(0,0,0,.08);
+    z-index: 60;
+    transition: left .9s ease, top .9s ease, opacity .25s ease;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .token.instr {
+    background: #e6f7eb;
+    color: #16713a;
+    border: 2px solid #3ab86f;
+    font-size: 22px;
+    min-width: 110px;
+  }
+  .token.data {
+    background: #edf3ff;
+    color: #214d82;
+    border: 2px solid #7aa6e8;
+    font-size: 17px;
+    min-width: 170px;
+  }
+
+  .legend {
+    margin-top: 12px;
+    text-align: center;
+    color: #64788b;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 1280px) {
+    .stage {
+      overflow-x: auto;
+    }
+    .flow {
+      min-width: 1280px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Flow 图：IR → 三路运算 → MUX → 结果寄存器</h1>
+  <div class="desc">更形象地表现“指令选择运算结果”的过程</div>
+
+  <div class="toolbar">
+    <label style="display:flex;align-items:center;gap:8px;">
+      <span style="color:#24415f;font-weight:700;">指令类型</span>
+      <select id="instrSelect">
+        <option value="AND" selected>AND</option>
+        <option value="OR">OR</option>
+        <option value="NOT">NOT</option>
+      </select>
+    </label>
+    <button onclick="startAnimation()">开始动画</button>
+    <button class="green" onclick="randomizeData()">随机数据</button>
+    <button class="secondary" onclick="resetAll()">重置</button>
+  </div>
+
+  <div class="status" id="status">
+    准备就绪：点击“开始动画”，从指令寄存器开始观察整个 flow 图流程。
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="floating-layer" id="floatingLayer"></div>
+
+    <div class="flow" id="flow">
+      <svg class="connector-layer" viewBox="0 0 1280 920" preserveAspectRatio="none">
+        <defs>
+          <marker id="arrowDefault" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrowhead" id="arrowDefaultPath"></path>
+          </marker>
+          <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrowhead active"></path>
+          </marker>
+          <marker id="arrowGreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrowhead green"></path>
+          </marker>
+        </defs>
+
+        <!-- IR -> 3 operators -->
+        <path id="line_ir_and" class="line" marker-end="url(#arrowDefault)"
+              d="M640 145 L640 205 L215 205 L215 280" />
+        <path id="line_ir_or" class="line" marker-end="url(#arrowDefault)"
+              d="M640 145 L640 280" />
+        <path id="line_ir_not" class="line" marker-end="url(#arrowDefault)"
+              d="M640 145 L640 205 L1065 205 L1065 280" />
+
+        <!-- 3 operators -> MUX -->
+        <path id="line_and_mux" class="line" marker-end="url(#arrowDefault)"
+              d="M215 560 L215 640 L640 640 L640 600" />
+        <path id="line_or_mux" class="line" marker-end="url(#arrowDefault)"
+              d="M640 560 L640 600" />
+        <path id="line_not_mux" class="line" marker-end="url(#arrowDefault)"
+              d="M1065 560 L1065 640 L640 640 L640 600" />
+
+        <!-- MUX -> Result -->
+        <path id="line_mux_result" class="line" marker-end="url(#arrowDefault)"
+              d="M640 710 L640 800" />
+      </svg>
+
+      <div class="node" id="irNode">
+        <div class="node-title">指令寄存器 IR</div>
+        <div class="ir-main" id="irMain">AND</div>
+        <div class="ir-sub" id="operandText">R1=10110101　R2=11010011</div>
+      </div>
+
+      <div class="node" id="andNode">
+        <div class="node-title">AND</div>
+        <div class="op-symbol">
+          <svg width="120" height="70" viewBox="0 0 120 70">
+            <line x1="8" y1="22" x2="38" y2="22" stroke="#2b5a42" stroke-width="4"/>
+            <line x1="8" y1="48" x2="38" y2="48" stroke="#2b5a42" stroke-width="4"/>
+            <path d="M38 10 L38 60 L60 60 A25 25 0 0 0 60 10 Z" fill="none" stroke="#2b5a42" stroke-width="4"/>
+            <line x1="85" y1="35" x2="114" y2="35" stroke="#2b5a42" stroke-width="4"/>
+          </svg>
+        </div>
+        <div class="expr">Y = R1 &amp; R2</div>
+        <div class="bits" id="andBits"></div>
+        <div class="small-note result-mini">并行计算结果</div>
+      </div>
+
+      <div class="node" id="orNode">
+        <div class="node-title">OR</div>
+        <div class="op-symbol">
+          <svg width="120" height="70" viewBox="0 0 120 70">
+            <line x1="8" y1="22" x2="34" y2="22" stroke="#8a6504" stroke-width="4"/>
+            <line x1="8" y1="48" x2="34" y2="48" stroke="#8a6504" stroke-width="4"/>
+            <path d="M30 10 Q55 35 30 60 Q60 60 88 35 Q60 10 30 10 Z" fill="none" stroke="#8a6504" stroke-width="4"/>
+            <line x1="88" y1="35" x2="114" y2="35" stroke="#8a6504" stroke-width="4"/>
+          </svg>
+        </div>
+        <div class="expr">Y = R1 | R2</div>
+        <div class="bits" id="orBits"></div>
+        <div class="small-note result-mini">并行计算结果</div>
+      </div>
+
+      <div class="node" id="notNode">
+        <div class="node-title">NOT</div>
+        <div class="op-symbol">
+          <svg width="120" height="70" viewBox="0 0 120 70">
+            <line x1="8" y1="35" x2="35" y2="35" stroke="#a33f3f" stroke-width="4"/>
+            <path d="M35 10 L35 60 L78 35 Z" fill="none" stroke="#a33f3f" stroke-width="4"/>
+            <circle cx="86" cy="35" r="8" fill="white" stroke="#a33f3f" stroke-width="4"/>
+            <line x1="94" y1="35" x2="114" y2="35" stroke="#a33f3f" stroke-width="4"/>
+          </svg>
+        </div>
+        <div class="expr">Y = ~R1</div>
+        <div class="bits" id="notBits"></div>
+        <div class="small-note result-mini">并行计算结果</div>
+      </div>
+
+      <div class="node" id="muxNode">
+        <div class="node-title">多路选择器</div>
+        <div class="mux-main">MUX</div>
+        <div class="mux-select" id="muxSelect">Select = ?</div>
+      </div>
+
+      <div class="node" id="resultNode">
+        <div class="node-title">结果寄存器</div>
+        <div class="result-box" id="resultBox">--------</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      流程：IR 发出控制 → 数据并行送入 AND / OR / NOT → MUX 根据指令类型选择一路 → 写入结果寄存器
+    </div>
+  </div>
+</div>
+
+<script>
+  let R1 = [1,0,1,1,0,1,0,1];
+  let R2 = [1,1,0,1,0,0,1,1];
+  let animating = false;
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function calcAND() { return R1.map((v, i) => v & R2[i]); }
+  function calcOR()  { return R1.map((v, i) => v | R2[i]); }
+  function calcNOT() { return R1.map(v => v ? 0 : 1); }
+
+  function arrStr(arr) {
+    return arr.join('');
+  }
+
+  function renderBitPlaceholders(id) {
+    const box = document.getElementById(id);
+    box.innerHTML = "";
+    for (let i = 0; i < 8; i++) {
+      const d = document.createElement("div");
+      d.className = "bit";
+      d.textContent = "";
+      box.appendChild(d);
+    }
+  }
+
+  function fillBits(id, arr) {
+    const items = document.querySelectorAll('#' + id + ' .bit');
+    items.forEach((item, i) => {
+      item.textContent = arr[i];
+      item.className = 'bit ' + (arr[i] ? 'one' : 'zero');
+    });
+  }
+
+  function resetLines() {
+    const ids = [
+      'line_ir_and','line_ir_or','line_ir_not',
+      'line_and_mux','line_or_mux','line_not_mux',
+      'line_mux_result'
+    ];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove('active');
+      el.classList.remove('green');
+      el.setAttribute('marker-end', 'url(#arrowDefault)');
+    });
+  }
+
+  function activateLines(ids, green=false) {
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.add(green ? 'green' : 'active');
+      el.setAttribute('marker-end', green ? 'url(#arrowGreen)' : 'url(#arrowActive)');
+    });
+  }
+
+  function updateIR() {
+    const instr = document.getElementById('instrSelect').value;
+    document.getElementById('irMain').textContent = instr;
+    document.getElementById('operandText').textContent = 'R1=' + arrStr(R1) + '　R2=' + arrStr(R2);
+  }
+
+  function resetNodes() {
+    ['irNode','andNode','orNode','notNode','muxNode','resultNode'].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove('hot','green','yellow','red');
+    });
+
+    // base colors for the three operators
+    document.getElementById('andNode').classList.add('green');
+    document.getElementById('orNode').classList.add('yellow');
+    document.getElementById('notNode').classList.add('red');
+
+    document.getElementById('muxSelect').classList.remove('active');
+    document.getElementById('muxSelect').textContent = 'Select = ?';
+    const resultBox = document.getElementById('resultBox');
+    resultBox.textContent = '--------';
+    resultBox.classList.remove('filled');
+    resetLines();
+    document.getElementById('floatingLayer').innerHTML = '';
+  }
+
+  function randomizeData() {
+    if (animating) return;
+    R1 = Array.from({length: 8}, () => Math.random() > 0.5 ? 1 : 0);
+    R2 = Array.from({length: 8}, () => Math.random() > 0.5 ? 1 : 0);
+    renderAll();
+  }
+
+  function resetAll() {
+    if (animating) return;
+    R1 = [1,0,1,1,0,1,0,1];
+    R2 = [1,1,0,1,0,0,1,1];
+    renderAll();
+  }
+
+  function renderAll() {
+    updateIR();
+    renderBitPlaceholders('andBits');
+    renderBitPlaceholders('orBits');
+    renderBitPlaceholders('notBits');
+    resetNodes();
+    document.getElementById('status').innerHTML = '准备就绪：点击“开始动画”，从指令寄存器开始观察整个 flow 图流程。';
+  }
+
+  function centerOf(el) {
+    const stage = document.getElementById('stage').getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.left - stage.left + r.width / 2,
+      y: r.top - stage.top + r.height / 2
+    };
+  }
+
+  function createToken(text, cls, fromEl) {
+    const layer = document.getElementById('floatingLayer');
+    const token = document.createElement('div');
+    token.className = 'token ' + cls;
+    token.textContent = text;
+    layer.appendChild(token);
+
+    const c = centerOf(fromEl);
+    token.style.left = (c.x - token.offsetWidth / 2) + 'px';
+    token.style.top = (c.y - token.offsetHeight / 2) + 'px';
+    return token;
+  }
+
+  function moveToken(token, toEl) {
+    const c = centerOf(toEl);
+    token.style.left = (c.x - token.offsetWidth / 2) + 'px';
+    token.style.top = (c.y - token.offsetHeight / 2) + 'px';
+  }
+
+  function selectedResult(instr) {
+    if (instr === 'AND') return calcAND();
+    if (instr === 'OR') return calcOR();
+    return calcNOT();
+  }
+
+  function selectedNode(instr) {
+    if (instr === 'AND') return document.getElementById('andNode');
+    if (instr === 'OR') return document.getElementById('orNode');
+    return document.getElementById('notNode');
+  }
+
+  function selectedLinesToMux(instr) {
+    if (instr === 'AND') return ['line_and_mux'];
+    if (instr === 'OR') return ['line_or_mux'];
+    return ['line_not_mux'];
+  }
+
+  async function startAnimation() {
+    if (animating) return;
+    animating = true;
+    renderAll();
+
+    const instr = document.getElementById('instrSelect').value;
+
+    const andRes = calcAND();
+    const orRes = calcOR();
+    const notRes = calcNOT();
+
+    // step1
+    document.getElementById('status').innerHTML =
+      '第 1 步：最上方的 <b>指令寄存器 IR</b> 发出控制，向下分叉到三个运算器。';
+    document.getElementById('irNode').classList.add('hot');
+    activateLines(['line_ir_and','line_ir_or','line_ir_not']);
+    await sleep(900);
+
+    // step2 values fly to all operators
+    document.getElementById('status').innerHTML =
+      '第 2 步：数值同时飞到 AND / OR / NOT 三个运算器上，三个运算器并行开始计算。';
+
+    const srcEl = document.getElementById('irNode');
+    const tokenAnd = createToken(arrStr(R1) + ' , ' + arrStr(R2), 'data', srcEl);
+    const tokenOr  = createToken(arrStr(R1) + ' , ' + arrStr(R2), 'data', srcEl);
+    const tokenNot = createToken('~ ' + arrStr(R1), 'data', srcEl);
+
+    await sleep(60);
+    moveToken(tokenAnd, document.getElementById('andNode'));
+    moveToken(tokenOr, document.getElementById('orNode'));
+    moveToken(tokenNot, document.getElementById('notNode'));
+
+    document.getElementById('andNode').classList.add('hot');
+    document.getElementById('orNode').classList.add('hot');
+    document.getElementById('notNode').classList.add('hot');
+
+    await sleep(1100);
+
+    fillBits('andBits', andRes);
+    fillBits('orBits', orRes);
+    fillBits('notBits', notRes);
+
+    tokenAnd.style.opacity = '0';
+    tokenOr.style.opacity = '0';
+    tokenNot.style.opacity = '0';
+
+    await sleep(250);
+
+    // step3 operators -> mux, mux flashes and shows instruction type
+    document.getElementById('status').innerHTML =
+      '第 3 步：三个运算结果向下汇聚到 <b>多路选择器</b>。当 MUX 闪烁时，出现本次指令类型 <b>' + instr + '</b>。';
+
+    activateLines(['line_and_mux','line_or_mux','line_not_mux']);
+    document.getElementById('muxNode').classList.add('hot');
+
+    await sleep(600);
+
+    // selected node stays emphasized
+    const selNode = selectedNode(instr);
+    selNode.classList.add('hot');
+    document.getElementById('muxSelect').textContent = 'Select = ' + instr;
+    document.getElementById('muxSelect').classList.add('active');
+    document.getElementById('muxNode').classList.add('green');
+
+    await sleep(900);
+
+    // step4 selected result moves to mux
+    document.getElementById('status').innerHTML =
+      '第 4 步：MUX 根据指令类型 <b>' + instr + '</b> 选中对应运算器的结果。';
+
+    resetLines();
+    activateLines(selectedLinesToMux(instr), true);
+
+    const resText = arrStr(selectedResult(instr));
+    const dataToken = createToken(resText, 'data', selNode);
+    await sleep(60);
+    moveToken(dataToken, document.getElementById('muxNode'));
+    await sleep(1000);
+
+    // step5 mux to result register
+    document.getElementById('status').innerHTML =
+      '第 5 步：被选中的结果继续向下，通过箭头送入 <b>结果寄存器</b>。';
+
+    activateLines(['line_mux_result'], true);
+
+    const outToken = createToken(resText, 'data', document.getElementById('muxNode'));
+    dataToken.style.opacity = '0';
+    await sleep(60);
+    moveToken(outToken, document.getElementById('resultNode'));
+    await sleep(1000);
+
+    outToken.style.opacity = '0';
+    const resultBox = document.getElementById('resultBox');
+    resultBox.textContent = resText;
+    resultBox.classList.add('filled');
+    document.getElementById('resultNode').classList.add('hot');
+
+    document.getElementById('status').innerHTML =
+      '动画完成。<br>' +
+      '当前指令：<b>' + instr + '</b><br>' +
+      'R1 = ' + arrStr(R1) + '<br>' +
+      'R2 = ' + arrStr(R2) + '<br>' +
+      '写入结果寄存器的值 = <b>' + resText + '</b>';
+
+    animating = false;
+  }
+
+  document.getElementById('instrSelect').addEventListener('change', () => {
+    if (animating) return;
+    renderAll();
+  });
+
+  renderAll();
+</script>
+</body>
+</html>

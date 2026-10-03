@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>8位AND运算 Debug版（同时读取）</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f4f7fb;
+    color: #1f2d3d;
+  }
+
+  .wrap {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  h1 {
+    text-align: center;
+    color: #173d78;
+    margin: 6px 0 8px;
+  }
+
+  .desc {
+    text-align: center;
+    color: #637589;
+    margin-bottom: 16px;
+  }
+
+  .debugbar {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  button {
+    border: none;
+    border-radius: 9px;
+    padding: 10px 16px;
+    font-size: 15px;
+    cursor: pointer;
+    color: white;
+    background: #2f6fed;
+  }
+
+  button:hover { opacity: .92; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .back { background: #6d7b8b; }
+  .reset { background: #8a5bd3; }
+  .random { background: #229c59; }
+
+  .debug-layout {
+    display: grid;
+    grid-template-columns: 1fr 270px;
+    gap: 16px;
+  }
+
+  .stage {
+    position: relative;
+    background: white;
+    border: 2px solid #d9e5f3;
+    border-radius: 18px;
+    padding: 22px;
+    min-height: 650px;
+    overflow: hidden;
+  }
+
+  .floating-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 30;
+  }
+
+  .register-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    margin-bottom: 24px;
+  }
+
+  .register-box {
+    border: 2px solid #d6e3f3;
+    border-radius: 15px;
+    padding: 13px;
+    background: #fbfdff;
+    transition: .25s;
+  }
+
+  .register-box.hot {
+    border-color: #ffb020;
+    box-shadow: 0 0 0 4px rgba(255,176,32,.15);
+    background: #fffaf0;
+  }
+
+  .register-title {
+    font-size: 21px;
+    font-weight: 800;
+    color: #173d78;
+    margin-bottom: 10px;
+  }
+
+  .bits {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+  }
+
+  .bit {
+    width: 44px;
+    height: 44px;
+    margin: auto;
+    border: 2px solid #bed2e9;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 20px;
+    background: #eff5fb;
+    transition: .25s;
+  }
+
+  .bit.one {
+    background: #e5f7e9;
+    border-color: #92d2a4;
+    color: #136236;
+  }
+
+  .bit.zero { color: #506276; }
+
+  .bit.source-hot {
+    border-color: #ff9800;
+    transform: scale(1.08);
+    box-shadow: 0 0 0 4px rgba(255,152,0,.18);
+  }
+
+  .alu-title {
+    text-align: center;
+    font-weight: 900;
+    color: #17437d;
+    font-size: 29px;
+    margin: 8px 0 16px;
+  }
+
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+  }
+
+  .column {
+    min-height: 330px;
+    position: relative;
+  }
+
+  .bit-index {
+    text-align: center;
+    color: #6a7d90;
+    font-size: 13px;
+    margin-bottom: 7px;
+  }
+
+  .socket-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 4px;
+    margin-bottom: 6px;
+  }
+
+  .socket {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    border: 2px dashed #abc3df;
+    background: #fafcff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    transition: .25s;
+  }
+
+  .socket.target {
+    border-color: #ff9800;
+    box-shadow: 0 0 0 4px rgba(255,152,0,.14);
+  }
+
+  .socket.r1 {
+    border-style: solid;
+    background: #e8f5ff;
+    border-color: #5aa9ff;
+    color: #17538d;
+  }
+
+  .socket.r2 {
+    border-style: solid;
+    background: #edfbe9;
+    border-color: #6bc46d;
+    color: #256126;
+  }
+
+  .gate-wrap {
+    height: 150px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .gate-svg {
+    width: 90px;
+    height: 130px;
+    overflow: visible;
+  }
+
+  .gate-path {
+    fill: white;
+    stroke: #284a78;
+    stroke-width: 3.5;
+    transition: .2s;
+  }
+
+  .gate-line {
+    stroke: #284a78;
+    stroke-width: 3.5;
+    transition: .2s;
+  }
+
+  .gate-text {
+    fill: #284a78;
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .gate-wrap.active .gate-path {
+    fill: #fff2cb;
+    stroke: #ff9800;
+    filter: drop-shadow(0 0 10px rgba(255,152,0,.7));
+  }
+
+  .gate-wrap.active .gate-line { stroke: #ff9800; }
+  .gate-wrap.active .gate-text { fill: #a75f00; }
+
+  .result-dot {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto;
+    border: 2px solid #c8d7e8;
+    border-radius: 11px;
+    background: #f3f7fc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 800;
+    color: transparent;
+    opacity: .3;
+    transform: translateY(5px);
+    transition: .25s;
+  }
+
+  .result-dot.show {
+    opacity: 1;
+    transform: translateY(0);
+    color: #104d8b;
+    background: #e9f2ff;
+    border-color: #7faee5;
+    box-shadow: 0 0 0 4px rgba(127,174,229,.12);
+  }
+
+  .floating-bit {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    font-weight: 800;
+    z-index: 40;
+    transition: left .8s ease, top .8s ease, opacity .2s ease;
+  }
+
+  .floating-bit.r1f {
+    background: #e8f5ff;
+    border: 2px solid #5aa9ff;
+    color: #17538d;
+  }
+
+  .floating-bit.r2f {
+    background: #edfbe9;
+    border: 2px solid #6bc46d;
+    color: #256126;
+  }
+
+  .side {
+    background: white;
+    border: 2px solid #d9e5f3;
+    border-radius: 18px;
+    padding: 14px;
+    height: fit-content;
+  }
+
+  .side-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #173d78;
+    margin-bottom: 10px;
+  }
+
+  .step-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .step-item {
+    border: 1px solid #d7e3f0;
+    border-radius: 9px;
+    padding: 9px 10px;
+    background: #f8fbfe;
+    color: #617285;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .step-item.done {
+    background: #eaf8ee;
+    border-color: #a6d8b4;
+    color: #21623a;
+  }
+
+  .step-item.current {
+    background: #fff3c8;
+    border-color: #ffb625;
+    color: #8a5400;
+    font-weight: 700;
+    box-shadow: 0 0 0 3px rgba(255,182,37,.12);
+  }
+
+  .debug-info {
+    margin-top: 14px;
+    border-top: 1px solid #dbe5ef;
+    padding-top: 12px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #526579;
+  }
+
+  .debug-info b { color: #173d78; }
+
+  .value-box {
+    margin-top: 8px;
+    background: #f4f7fb;
+    border-radius: 9px;
+    padding: 10px;
+    font-family: Consolas, monospace;
+  }
+
+  @media (max-width: 1100px) {
+    .debug-layout { grid-template-columns: 1fr; }
+    .stage { overflow-x: auto; }
+    .register-area, .columns { min-width: 960px; }
+  }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>8 位 AND 运算 — Debug 同时读取版</h1>
+  <div class="desc">
+    R1 与 R2 同时读取 → 16 个 bit 同时进入 8 个 AND 门 → 8 个 AND 门并行运算 → 8 位结果同时出现
+  </div>
+
+  <div class="debugbar">
+    <button class="back" id="prevBtn" onclick="prevStep()">← 上一步</button>
+    <button id="nextBtn" onclick="nextStep()">F6 / 下一步 →</button>
+    <button class="reset" onclick="resetDebug()">重置</button>
+    <button class="random" onclick="randomize()">随机数据</button>
+  </div>
+
+  <div class="debug-layout">
+    <div class="stage" id="stage">
+      <div class="floating-layer" id="floatingLayer"></div>
+
+      <div class="register-area">
+        <div class="register-box" id="r1Box">
+          <div class="register-title">R1</div>
+          <div class="bits" id="r1Bits"></div>
+        </div>
+
+        <div class="register-box" id="r2Box">
+          <div class="register-title">R2</div>
+          <div class="bits" id="r2Bits"></div>
+        </div>
+      </div>
+
+      <div class="alu-title">ALU：8 个并行 AND 门</div>
+      <div class="columns" id="columns"></div>
+    </div>
+
+    <div class="side">
+      <div class="side-title">Debug 状态</div>
+
+      <div class="step-list">
+        <div class="step-item" id="s0">等待开始</div>
+        <div class="step-item" id="s1">R1 / R2 同时读取</div>
+        <div class="step-item" id="s2">8 个 AND 门并行执行</div>
+        <div class="step-item" id="s3">8 位结果同时输出</div>
+        <div class="step-item" id="s4">运算完成</div>
+      </div>
+
+      <div class="debug-info">
+        <b>当前步骤：</b>
+        <div class="value-box" id="currentStep">等待 F6</div>
+
+        <b>当前数据：</b>
+        <div class="value-box" id="values"></div>
+
+        <b>运算关系：</b>
+        <div class="value-box">Yi = R1i & R2i</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let R1 = [1,0,1,1,0,1,0,1];
+  let R2 = [1,1,0,1,0,0,1,1];
+  let step = 0;
+  let locked = false;
+
+  function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  function gateSVG() {
+    return `
+      <svg class="gate-svg" viewBox="0 0 100 140">
+        <line class="gate-line" x1="8" y1="28" x2="30" y2="28"/>
+        <line class="gate-line" x1="70" y1="28" x2="92" y2="28"/>
+        <line class="gate-line" x1="30" y1="28" x2="30" y2="42"/>
+        <line class="gate-line" x1="70" y1="28" x2="70" y2="42"/>
+        <path class="gate-path"
+              d="M30,42 L30,72 A20,20 0 0 0 70,72 L70,42 Z"/>
+        <line class="gate-line" x1="50" y1="92" x2="50" y2="118"/>
+        <text class="gate-text" x="50" y="64" text-anchor="middle">AND</text>
+      </svg>
+    `;
+  }
+
+  function renderRegisters() {
+    const a = document.getElementById("r1Bits");
+    const b = document.getElementById("r2Bits");
+    a.innerHTML = "";
+    b.innerHTML = "";
+
+    for (let i = 0; i < 8; i++) {
+      a.innerHTML += `<div class="bit ${R1[i] ? "one":"zero"}" id="r1_${i}">${R1[i]}</div>`;
+      b.innerHTML += `<div class="bit ${R2[i] ? "one":"zero"}" id="r2_${i}">${R2[i]}</div>`;
+    }
+  }
+
+  function renderColumns() {
+    const c = document.getElementById("columns");
+    c.innerHTML = "";
+
+    for (let i = 0; i < 8; i++) {
+      c.innerHTML += `
+        <div class="column">
+          <div class="bit-index">bit ${7-i}</div>
+
+          <div class="socket-row">
+            <div class="socket" id="aSocket_${i}"></div>
+            <div class="socket" id="bSocket_${i}"></div>
+          </div>
+
+          <div class="gate-wrap" id="gate_${i}">
+            ${gateSVG()}
+          </div>
+
+          <div class="result-dot" id="result_${i}"></div>
+        </div>
+      `;
+    }
+  }
+
+  function resultArray() {
+    return R1.map((v,i) => v & R2[i]);
+  }
+
+  function updateValues() {
+    document.getElementById("values").innerHTML =
+      `R1  = ${R1.join("")}<br>` +
+      `R2  = ${R2.join("")}<br>` +
+      `OUT = ${step >= 3 ? resultArray().join("") : "--------"}`;
+  }
+
+  function clearVisual() {
+    document.getElementById("floatingLayer").innerHTML = "";
+    document.getElementById("r1Box").classList.remove("hot");
+    document.getElementById("r2Box").classList.remove("hot");
+
+    for (let i = 0; i < 8; i++) {
+      document.getElementById("r1_"+i).classList.remove("source-hot");
+      document.getElementById("r2_"+i).classList.remove("source-hot");
+
+      const sa = document.getElementById("aSocket_"+i);
+      const sb = document.getElementById("bSocket_"+i);
+      sa.className = "socket";
+      sb.className = "socket";
+      sa.textContent = "";
+      sb.textContent = "";
+
+      document.getElementById("gate_"+i).classList.remove("active");
+
+      const r = document.getElementById("result_"+i);
+      r.className = "result-dot";
+      r.textContent = "";
+    }
+  }
+
+  function updateSteps() {
+    for (let i = 0; i <= 4; i++) {
+      const el = document.getElementById("s"+i);
+      el.className = "step-item";
+      if (i < step) el.classList.add("done");
+      if (i === step) el.classList.add("current");
+    }
+
+    const names = [
+      "等待开始",
+      "R1 与 R2 同时读取，16 个 bit 同时移动到 8 个 AND 门输入端",
+      "8 个 AND 门同时进行按位与运算",
+      "8 位结果同时出现在 AND 门下方",
+      "执行完成"
+    ];
+
+    document.getElementById("currentStep").textContent = names[step];
+    document.getElementById("prevBtn").disabled = step === 0 || locked;
+    document.getElementById("nextBtn").disabled = step === 4 || locked;
+    updateValues();
+  }
+
+  function stageRect() {
+    return document.getElementById("stage").getBoundingClientRect();
+  }
+
+  function createFloat(from, value, cls) {
+    const layer = document.getElementById("floatingLayer");
+    const sr = stageRect();
+    const fr = from.getBoundingClientRect();
+
+    const d = document.createElement("div");
+    d.className = `floating-bit ${cls}`;
+    d.textContent = value;
+    d.style.left = (fr.left - sr.left + fr.width/2 - 20) + "px";
+    d.style.top  = (fr.top  - sr.top  + fr.height/2 - 20) + "px";
+    layer.appendChild(d);
+    return d;
+  }
+
+  function moveFloat(el, target) {
+    const sr = stageRect();
+    const tr = target.getBoundingClientRect();
+
+    requestAnimationFrame(() => {
+      el.style.left = (tr.left - sr.left + tr.width/2 - 20) + "px";
+      el.style.top  = (tr.top  - sr.top  + tr.height/2 - 20) + "px";
+    });
+  }
+
+  async function animateSimultaneousRead() {
+    locked = true;
+    updateSteps();
+
+    document.getElementById("r1Box").classList.add("hot");
+    document.getElementById("r2Box").classList.add("hot");
+
+    const floats = [];
+
+    for (let i = 0; i < 8; i++) {
+      const r1src = document.getElementById("r1_"+i);
+      const r2src = document.getElementById("r2_"+i);
+      const r1dst = document.getElementById("aSocket_"+i);
+      const r2dst = document.getElementById("bSocket_"+i);
+
+      r1src.classList.add("source-hot");
+      r2src.classList.add("source-hot");
+      r1dst.classList.add("target");
+      r2dst.classList.add("target");
+
+      const f1 = createFloat(r1src, R1[i], "r1f");
+      const f2 = createFloat(r2src, R2[i], "r2f");
+
+      floats.push([f1, r1dst, R1[i], "r1"]);
+      floats.push([f2, r2dst, R2[i], "r2"]);
+    }
+
+    await sleep(50);
+
+    // 16 个 bit 真正同时开始移动
+    floats.forEach(([f, dst]) => moveFloat(f, dst));
+
+    await sleep(850);
+
+    floats.forEach(([f, dst, value, cls]) => {
+      dst.textContent = value;
+      dst.className = "socket " + cls;
+      f.style.opacity = "0";
+    });
+
+    document.getElementById("r1Box").classList.remove("hot");
+    document.getElementById("r2Box").classList.remove("hot");
+
+    locked = false;
+    updateSteps();
+  }
+
+  async function animateGates() {
+    locked = true;
+    updateSteps();
+
+    for (let i = 0; i < 8; i++) {
+      document.getElementById("gate_"+i).classList.add("active");
+    }
+
+    await sleep(1000);
+
+    for (let i = 0; i < 8; i++) {
+      document.getElementById("gate_"+i).classList.remove("active");
+    }
+
+    locked = false;
+    updateSteps();
+  }
+
+  async function showResultsTogether() {
+    locked = true;
+    updateSteps();
+
+    const res = resultArray();
+
+    // 8 个结果同时出现
+    for (let i = 0; i < 8; i++) {
+      const r = document.getElementById("result_"+i);
+      r.textContent = res[i];
+    }
+
+    requestAnimationFrame(() => {
+      for (let i = 0; i < 8; i++) {
+        document.getElementById("result_"+i).classList.add("show");
+      }
+    });
+
+    await sleep(400);
+
+    locked = false;
+    updateSteps();
+  }
+
+  function applyState(targetStep) {
+    clearVisual();
+
+    if (targetStep >= 2) {
+      for (let i = 0; i < 8; i++) {
+        const a = document.getElementById("aSocket_"+i);
+        const b = document.getElementById("bSocket_"+i);
+
+        a.textContent = R1[i];
+        a.className = "socket r1";
+
+        b.textContent = R2[i];
+        b.className = "socket r2";
+      }
+    }
+
+    if (targetStep >= 4) {
+      const res = resultArray();
+
+      for (let i = 0; i < 8; i++) {
+        const r = document.getElementById("result_"+i);
+        r.textContent = res[i];
+        r.classList.add("show");
+      }
+    }
+
+    updateSteps();
+  }
+
+  async function nextStep() {
+    if (locked || step >= 4) return;
+
+    if (step === 0) {
+      step = 1;
+      updateSteps();
+      await animateSimultaneousRead();
+
+    } else if (step === 1) {
+      step = 2;
+      applyState(step);
+      await animateGates();
+
+    } else if (step === 2) {
+      step = 3;
+      applyState(step);
+      await showResultsTogether();
+
+    } else if (step === 3) {
+      step = 4;
+      applyState(step);
+    }
+  }
+
+  function prevStep() {
+    if (locked || step <= 0) return;
+    step--;
+    applyState(step);
+  }
+
+  function resetDebug() {
+    if (locked) return;
+    step = 0;
+    clearVisual();
+    updateSteps();
+  }
+
+  function randomize() {
+    if (locked) return;
+
+    R1 = Array.from({length:8}, () => Math.random() > .5 ? 1 : 0);
+    R2 = Array.from({length:8}, () => Math.random() > .5 ? 1 : 0);
+
+    step = 0;
+    renderRegisters();
+    renderColumns();
+    updateSteps();
+  }
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "F6") {
+      e.preventDefault();
+      nextStep();
+    }
+
+    if (e.key === "ArrowRight") nextStep();
+    if (e.key === "ArrowLeft") prevStep();
+  });
+
+  renderRegisters();
+  renderColumns();
+  updateSteps();
+</script>
+</body>
+</html>

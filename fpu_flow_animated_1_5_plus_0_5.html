@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FPU 动画版：1.5 + 0.5</title>
+<style>
+  * { box-sizing: border-box; }
+  body{
+    margin:0;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    background:#f4f7fb;
+    color:#23364a;
+  }
+  .wrap{max-width:1500px;margin:0 auto;padding:18px;}
+  h1{text-align:center;color:#173d78;margin:6px 0 8px;}
+  .desc{text-align:center;color:#647789;margin-bottom:14px;}
+  .toolbar{
+    display:flex;justify-content:center;gap:10px;flex-wrap:wrap;align-items:center;
+    margin-bottom:14px;
+  }
+  button{
+    border:none;border-radius:10px;padding:10px 16px;font-size:15px;cursor:pointer;
+    color:white;background:#2f6fed;
+  }
+  button:hover{opacity:.92;}
+  .secondary{background:#7c8896;}
+  .status{
+    background:white;border:2px solid #d8e4f2;border-radius:14px;
+    padding:12px 16px;min-height:56px;margin-bottom:16px;line-height:1.7;font-size:16px;
+  }
+  .board{
+    position:relative;background:white;border:2px solid #d8e4f2;border-radius:22px;
+    padding:18px;min-height:940px;overflow:hidden;
+  }
+  .floating-layer{
+    position:absolute;inset:0;pointer-events:none;z-index:70;
+  }
+  .summary{
+    margin:0 auto 18px;width:fit-content;background:#f8fbfe;border:2px solid #d7e4f2;
+    border-radius:14px;padding:12px 18px;text-align:center;font-family:Consolas,monospace;
+    color:#27496f;line-height:1.8;font-size:17px;
+  }
+  .canvas{position:relative;height:820px;}
+  .line-v{
+    position:absolute;left:50%;width:6px;background:#c5d8ed;border-radius:999px;
+    transform:translateX(-50%);z-index:1;
+  }
+  .stage{
+    position:absolute;left:50%;transform:translateX(-50%);
+    width:980px;background:#fbfdff;border:3px solid #d5e2f1;border-radius:18px;
+    padding:14px 16px;box-shadow:0 6px 14px rgba(0,0,0,.04);
+    z-index:5;transition:.25s;
+  }
+  .stage.active{
+    border-color:#ffaf2f;background:#fffaf0;
+    box-shadow:0 0 0 5px rgba(255,175,47,.14),0 8px 18px rgba(255,175,47,.08);
+  }
+  .stage.done{
+    border-color:#9fc1e8;background:#f8fbff;
+  }
+  .stage h3{
+    margin:0 0 10px 0;font-size:22px;color:#173d78;
+  }
+  .stage-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;align-items:start;}
+  .card{
+    background:white;border:2px solid #dbe6f3;border-radius:14px;padding:12px 14px;
+    line-height:1.8;color:#42576d;
+  }
+  .mono{font-family:Consolas,monospace;color:#22486e;}
+  .tag-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .tag{
+    display:inline-block;padding:6px 10px;border-radius:999px;font-size:13px;font-weight:800;
+  }
+  .tag.fpu{background:#eaf4ff;color:#12508d;border:1px solid #83b0e7;}
+  .tag.alu{background:#fff5e3;color:#9a6800;border:1px solid #f0c04d;}
+  .tag.result{background:#e7f8eb;color:#1d6b3f;border:1px solid #7bc494;}
+  .pill{
+    display:inline-block;padding:6px 10px;border-radius:999px;font-weight:800;
+    background:#eef4fb;border:1px solid #d0dff0;color:#57708a;
+  }
+
+  .operand-boxes{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .operand{
+    background:#f7fbff;border:1px solid #d6e4f2;border-radius:12px;padding:10px;text-align:center;
+  }
+  .operand .big{font-family:Consolas,monospace;font-size:22px;font-weight:900;color:#23476a;}
+  .split-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .split-card{
+    background:#f7fbff;border:1px solid #d6e4f2;border-radius:12px;padding:10px;
+  }
+  .mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .mini{
+    background:#f7fbff;border:1px solid #d6e4f2;border-radius:12px;padding:10px;text-align:center;
+  }
+  .mini .cap{font-size:13px;color:#6b7f92;margin-bottom:4px;}
+  .mini .val{font-family:Consolas,monospace;font-weight:800;color:#24486c;line-height:1.6;}
+
+  .compare-box,.highlight-box,.final-box{
+    border-radius:12px;padding:10px 12px;line-height:1.8;margin-top:8px;
+  }
+  .compare-box{background:#fff8e8;border:2px solid #efc14d;color:#815900;}
+  .highlight-box{background:#eef7ff;border:2px solid #8fb5e4;color:#295179;}
+  .final-box{background:#eefaf2;border:2px solid #7bc494;color:#1d6b3f;}
+
+  .align-demo{
+    display:grid;grid-template-columns:1fr;gap:10px;
+  }
+  .align-row{
+    background:#f8fbfe;border:1px solid #d6e4f2;border-radius:12px;padding:10px;
+    font-family:Consolas,monospace;font-size:22px;font-weight:800;color:#24486c;
+    position:relative;min-height:62px;display:flex;align-items:center;justify-content:center;
+  }
+  .shift-target{
+    display:inline-flex;gap:0;
+  }
+  .shift-char{
+    display:inline-block;min-width:16px;text-align:center;transition:transform .45s ease, opacity .45s ease;
+  }
+  .shift-char.hide{opacity:0;transform:translateX(-16px);}
+  .shift-char.move1{transform:translateX(18px);}
+  .adder-box{
+    width:190px;height:110px;margin:0 auto;border-radius:18px;border:3px solid #88b2e2;
+    background:#f7fbff;display:flex;align-items:center;justify-content:center;flex-direction:column;
+    transition:.25s;
+  }
+  .adder-box.flash{
+    border-color:#ffaf2f;background:#fff8e9;box-shadow:0 0 0 5px rgba(255,175,47,.14);
+    transform:scale(1.04);
+  }
+  .adder-box .t1{font-size:26px;font-weight:900;color:#295179;}
+  .adder-box .t2{font-size:13px;color:#698097;margin-top:4px;}
+
+  .normalize-box{
+    text-align:center;font-family:Consolas,monospace;font-size:25px;font-weight:900;color:#24486c;
+    min-height:70px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+  }
+  .norm-piece{
+    display:inline-block;padding:8px 12px;border-radius:12px;background:#f7fbff;border:1px solid #d6e4f2;
+    transition:.35s;
+  }
+  .norm-piece.flash{
+    background:#fff8e8;border-color:#efc14d;box-shadow:0 0 0 4px rgba(239,193,77,.16);
+  }
+
+  .result-register{
+    margin:0 auto;width:300px;height:86px;border-radius:16px;border:3px dashed #b7cae1;
+    background:#f8fbfe;display:flex;align-items:center;justify-content:center;
+    font-family:Consolas,monospace;font-size:34px;font-weight:900;color:#375270;transition:.25s;
+  }
+  .result-register.filled{
+    border-style:solid;border-color:#78a8e9;background:#eaf2ff;
+    box-shadow:0 0 0 5px rgba(120,168,233,.14);
+  }
+
+  .token{
+    position:absolute;border-radius:12px;padding:10px 14px;font-weight:900;
+    box-shadow:0 8px 18px rgba(0,0,0,.08);z-index:80;
+    transition:left .8s ease,top .8s ease,opacity .25s ease,transform .25s ease;
+    white-space:nowrap;
+  }
+  .token.blue{background:#edf3ff;border:2px solid #7aa6e8;color:#214d82;}
+  .token.green{background:#e6f7eb;border:2px solid #3ab86f;color:#16713a;}
+  .token.orange{background:#fff7e6;border:2px solid #efc24f;color:#9a6700;}
+  .token.big{font-size:19px;}
+  .token.small{font-size:17px;}
+
+  .foot{text-align:center;margin-top:12px;color:#667a8d;font-size:14px;line-height:1.7;}
+  @media (max-width:1100px){
+    .board{overflow-x:auto;}
+    .canvas{min-width:1050px;}
+    .stage{width:960px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FPU 动画版：1.5 + 0.5</h1>
+  <div class="desc">用更强的动画感，展示浮点加法从“拆分”到“规格化”的全过程，并标出用到 ALU 的地方</div>
+
+  <div class="toolbar">
+    <button onclick="startAnimation()">开始动画</button>
+    <button onclick="nextStep()">下一步</button>
+    <button class="secondary" onclick="resetFlow()">重置</button>
+  </div>
+
+  <div class="status" id="status">
+    准备就绪：点击“开始动画”或“下一步”，观察 1.5 + 0.5 在 FPU 中的动态过程。
+  </div>
+
+  <div class="board" id="board">
+    <div class="floating-layer" id="floatingLayer"></div>
+
+    <div class="summary">
+      十进制：<b>1.5 + 0.5 = 2.0</b><br>
+      二进制：<b>1.1₂ + 0.1₂ = 10.0₂</b><br>
+      主线：<b>拆分 → 比指数 → 对齐 → 尾数相加 → 规格化 → 得到结果</b>
+    </div>
+
+    <div class="canvas">
+      <div class="line-v" style="top:105px;height:65px;"></div>
+      <div class="line-v" style="top:295px;height:65px;"></div>
+      <div class="line-v" style="top:485px;height:65px;"></div>
+      <div class="line-v" style="top:675px;height:65px;"></div>
+      <div class="line-v" style="top:865px;height:65px;"></div>
+
+      <div class="stage" id="stage1" style="top:0px;">
+        <h3>步骤 1：读取两个浮点操作数</h3>
+        <div class="stage-grid">
+          <div class="card">
+            FPU 先拿到两个输入：<br>
+            <span class="mono">A = 1.5</span><br>
+            <span class="mono">B = 0.5</span><br><br>
+            这只是“开始”，接下来不会直接做十进制加法，而是进入浮点专用流程。
+            <div class="tag-row">
+              <span class="tag fpu">FPU：读取操作数</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="operand-boxes">
+              <div class="operand">
+                <div class="pill">Operand A</div>
+                <div class="big" id="opA">1.5</div>
+              </div>
+              <div class="operand">
+                <div class="pill">Operand B</div>
+                <div class="big" id="opB">0.5</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage2" style="top:190px;">
+        <h3>步骤 2：拆分为符号位、指数、尾数</h3>
+        <div class="stage-grid">
+          <div class="card">
+            把输入改写成规范化二进制：<br>
+            <span class="mono">1.5 = 1.1 × 2⁰</span><br>
+            <span class="mono">0.5 = 1.0 × 2⁻¹</span><br><br>
+            然后拆成三个部分：<b>Sign / Exponent / Mantissa</b>。
+            <div class="tag-row">
+              <span class="tag fpu">FPU：字段拆分</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="split-grid">
+              <div class="split-card" id="splitA">
+                <div class="pill">A = 1.5</div>
+                <div class="mini-grid" style="margin-top:8px;">
+                  <div class="mini"><div class="cap">Sign</div><div class="val">0</div></div>
+                  <div class="mini"><div class="cap">Exponent</div><div class="val">0</div></div>
+                  <div class="mini"><div class="cap">Mantissa</div><div class="val">1.1</div></div>
+                </div>
+              </div>
+              <div class="split-card" id="splitB">
+                <div class="pill">B = 0.5</div>
+                <div class="mini-grid" style="margin-top:8px;">
+                  <div class="mini"><div class="cap">Sign</div><div class="val">0</div></div>
+                  <div class="mini"><div class="cap">Exponent</div><div class="val">-1</div></div>
+                  <div class="mini"><div class="cap">Mantissa</div><div class="val">1.0</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage3" style="top:380px;">
+        <h3>步骤 3：比较指数，决定谁要对齐</h3>
+        <div class="stage-grid">
+          <div class="card">
+            比较两个指数：<br>
+            <span class="mono">E(A) = 0</span><br>
+            <span class="mono">E(B) = -1</span><br><br>
+            因为 <span class="mono">0 &gt; -1</span>，所以 B 的指数更小，<br>
+            需要把 <b>B 的尾数右移</b> 来对齐 A。
+            <div class="tag-row">
+              <span class="tag fpu">FPU：决定对齐方向</span>
+              <span class="tag alu">ALU能力：比较大小</span>
+              <span class="tag alu">ALU能力：计算指数差 0 - (-1) = 1</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="compare-box" id="compareBox">
+              指数差值：<br>
+              <span class="mono">0 - (-1) = 1</span><br>
+              因此 B 的尾数需要右移 <b>1 位</b>。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage4" style="top:570px;">
+        <h3>步骤 4：尾数对齐（把较小指数的尾数右移）</h3>
+        <div class="stage-grid">
+          <div class="card">
+            A 保持不变：<br>
+            <span class="mono">A = 1.10 × 2⁰</span><br><br>
+            B 的尾数从 <span class="mono">1.0</span> 右移 1 位，变成 <span class="mono">0.10</span>。<br>
+            这样两个数就拥有同样的指数 <span class="mono">2⁰</span>，可以进入尾数加法阶段。
+            <div class="tag-row">
+              <span class="tag fpu">FPU：尾数移位对齐</span>
+              <span class="tag alu">ALU相关能力：移位控制</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="align-demo">
+              <div class="align-row">
+                <span class="mono">A mantissa: 1.10</span>
+              </div>
+              <div class="align-row">
+                <span class="mono">B before: </span>&nbsp;
+                <span class="shift-target" id="shiftBefore">
+                  <span class="shift-char" id="c1">1</span>
+                  <span class="shift-char" id="c2">.</span>
+                  <span class="shift-char" id="c3">0</span>
+                </span>
+              </div>
+              <div class="align-row">
+                <span class="mono">B after: <span id="alignedText">?</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage5" style="top:760px;">
+        <h3>步骤 5：对齐后的尾数进入加法器</h3>
+        <div class="stage-grid">
+          <div class="card">
+            对齐之后相加的是：<br>
+            <span class="mono">1.10</span><br>
+            <span class="mono">+0.10</span><br><br>
+            这一步是最像普通“加法器”工作的地方。
+            <div class="tag-row">
+              <span class="tag fpu">FPU：尾数相加</span>
+              <span class="tag alu">ALU能力：加法器 / Adder</span>
+            </div>
+          </div>
+          <div class="card" style="text-align:center;">
+            <div class="adder-box" id="adderBox">
+              <div class="t1">Mantissa Adder</div>
+              <div class="t2">尾数加法器</div>
+            </div>
+            <div class="highlight-box" id="addResultBox" style="margin-top:12px;">
+              结果：<span class="mono" id="mantissaAddResult">?</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage" id="stage6" style="top:950px;">
+        <h3>步骤 6：规格化并重新封装结果</h3>
+        <div class="stage-grid">
+          <div class="card">
+            相加后得到：<br>
+            <span class="mono">10.00 × 2⁰</span><br><br>
+            这不是标准规范化形式，所以要把它变成：<br>
+            <span class="mono">1.00 × 2¹</span><br><br>
+            也就是最终结果：<b class="mono">2.0</b>
+            <div class="tag-row">
+              <span class="tag fpu">FPU：规格化 / 重新封装</span>
+              <span class="tag alu">ALU能力：指数 +1</span>
+              <span class="tag result">最终结果：2.0</span>
+            </div>
+          </div>
+          <div class="card" style="text-align:center;">
+            <div class="normalize-box">
+              <span class="norm-piece" id="norm1">10.00 × 2⁰</span>
+              <span class="norm-piece" id="normArrow">→</span>
+              <span class="norm-piece" id="norm2">1.00 × 2¹</span>
+            </div>
+            <div class="final-box" style="margin-top:14px;">
+              <div>Result Register</div>
+              <div class="result-register" id="resultReg">?</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="foot">
+      关键记忆：<b>浮点加法不是直接相加，而是先比指数、对齐尾数，再做尾数加法，最后规格化。</b>
+    </div>
+  </div>
+</div>
+
+<script>
+  let step = 0;
+  let locked = false;
+  const maxStep = 6;
+
+  function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  function centerOf(el){
+    const board = document.getElementById('board').getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return { x: r.left - board.left + r.width/2, y: r.top - board.top + r.height/2 };
+  }
+
+  function createToken(text, cls, fromEl){
+    const layer = document.getElementById('floatingLayer');
+    const token = document.createElement('div');
+    token.className = 'token ' + cls;
+    token.textContent = text;
+    layer.appendChild(token);
+    const c = centerOf(fromEl);
+    token.style.left = (c.x - token.offsetWidth/2) + 'px';
+    token.style.top = (c.y - token.offsetHeight/2) + 'px';
+    return token;
+  }
+
+  function moveToken(token, toEl){
+    const c = centerOf(toEl);
+    token.style.left = (c.x - token.offsetWidth/2) + 'px';
+    token.style.top = (c.y - token.offsetHeight/2) + 'px';
+  }
+
+  function clearStates(){
+    for(let i=1;i<=6;i++){
+      const s=document.getElementById('stage'+i);
+      s.classList.remove('active','done');
+      if(i<step) s.classList.add('done');
+    }
+    document.getElementById('floatingLayer').innerHTML='';
+    document.getElementById('alignedText').textContent='?';
+    document.getElementById('mantissaAddResult').textContent='?';
+    document.getElementById('adderBox').classList.remove('flash');
+    document.getElementById('norm1').classList.remove('flash');
+    document.getElementById('norm2').classList.remove('flash');
+    document.getElementById('resultReg').classList.remove('filled');
+    if(step < 6) document.getElementById('resultReg').textContent='?';
+
+    ['c1','c2','c3'].forEach(id=>{
+      const el=document.getElementById(id);
+      el.classList.remove('hide','move1');
+    });
+  }
+
+  function setStatus(text){
+    document.getElementById('status').innerHTML=text;
+  }
+
+  function applyStaticUpTo(n){
+    step = n;
+    clearStates();
+    for(let i=1;i<=n;i++){
+      if(i<n) document.getElementById('stage'+i).classList.add('done');
+    }
+    if(n>=1){
+      document.getElementById('stage1').classList.add(n===1?'active':'done');
+    }
+    if(n>=2){
+      document.getElementById('stage2').classList.add(n===2?'active':'done');
+    }
+    if(n>=3){
+      document.getElementById('stage3').classList.add(n===3?'active':'done');
+    }
+    if(n>=4){
+      document.getElementById('alignedText').textContent='0.10';
+      document.getElementById('stage4').classList.add(n===4?'active':'done');
+    }
+    if(n>=5){
+      document.getElementById('mantissaAddResult').textContent='10.00';
+      document.getElementById('stage5').classList.add(n===5?'active':'done');
+    }
+    if(n>=6){
+      document.getElementById('stage6').classList.add('active');
+      document.getElementById('resultReg').textContent='2.0';
+      document.getElementById('resultReg').classList.add('filled');
+    }
+  }
+
+  function resetFlow(){
+    step = 0;
+    locked = false;
+    clearStates();
+    setStatus('准备就绪：点击“开始动画”或“下一步”，观察 1.5 + 0.5 在 FPU 中的动态过程。');
+  }
+
+  async function runStep1(){
+    step = 1;
+    clearStates();
+    document.getElementById('stage1').classList.add('active');
+    setStatus('步骤 1：FPU 先读取两个浮点操作数 A=1.5，B=0.5。');
+    const t1=createToken('1.5','blue big',document.getElementById('opA'));
+    const t2=createToken('0.5','green big',document.getElementById('opB'));
+    await sleep(250);
+    t1.style.transform='scale(1.08)';
+    t2.style.transform='scale(1.08)';
+    await sleep(500);
+    t1.style.opacity='0';
+    t2.style.opacity='0';
+    await sleep(200);
+  }
+
+  async function runStep2(){
+    applyStaticUpTo(1);
+    document.getElementById('stage2').classList.add('active');
+    step = 2;
+    setStatus('步骤 2：把 1.5 和 0.5 写成规范化二进制，并拆分出 Sign / Exponent / Mantissa。');
+    const t1=createToken('1.5 → 1.1 × 2⁰','blue small',document.getElementById('opA'));
+    const t2=createToken('0.5 → 1.0 × 2⁻¹','green small',document.getElementById('opB'));
+    await sleep(60);
+    moveToken(t1, document.getElementById('splitA'));
+    moveToken(t2, document.getElementById('splitB'));
+    await sleep(900);
+    t1.style.opacity='0';
+    t2.style.opacity='0';
+    await sleep(180);
+  }
+
+  async function runStep3(){
+    applyStaticUpTo(2);
+    document.getElementById('stage3').classList.add('active');
+    step = 3;
+    setStatus('步骤 3：比较指数。E(A)=0，E(B)=-1，所以 B 的指数更小；ALU 还会算出指数差值为 1。');
+    const t1=createToken('E(A)=0','blue small',document.getElementById('splitA'));
+    const t2=createToken('E(B)=-1','green small',document.getElementById('splitB'));
+    await sleep(60);
+    moveToken(t1, document.getElementById('compareBox'));
+    moveToken(t2, document.getElementById('compareBox'));
+    await sleep(900);
+    t1.style.opacity='0';
+    t2.style.opacity='0';
+    await sleep(180);
+  }
+
+  async function runStep4(){
+    applyStaticUpTo(3);
+    document.getElementById('stage4').classList.add('active');
+    step = 4;
+    setStatus('步骤 4：开始尾数对齐。B 的尾数 1.0 右移 1 位，变成 0.10。');
+    await sleep(250);
+    const c1=document.getElementById('c1');
+    const c2=document.getElementById('c2');
+    const c3=document.getElementById('c3');
+    c1.classList.add('move1');
+    c2.classList.add('move1');
+    c3.classList.add('move1');
+    await sleep(500);
+    document.getElementById('alignedText').textContent='0.10';
+    await sleep(350);
+  }
+
+  async function runStep5(){
+    applyStaticUpTo(4);
+    document.getElementById('stage5').classList.add('active');
+    step = 5;
+    setStatus('步骤 5：把对齐后的两个尾数送入尾数加法器。这里用到了 ALU 风格的加法能力。');
+    const fromA=document.querySelector('#stage4 .align-row:nth-child(1)');
+    const fromB=document.querySelector('#stage4 .align-row:nth-child(3)');
+    const t1=createToken('1.10','blue big',fromA);
+    const t2=createToken('0.10','green big',fromB);
+    await sleep(60);
+    moveToken(t1, document.getElementById('adderBox'));
+    moveToken(t2, document.getElementById('adderBox'));
+    await sleep(900);
+    document.getElementById('adderBox').classList.add('flash');
+    await sleep(650);
+    document.getElementById('mantissaAddResult').textContent='10.00';
+    t1.style.opacity='0';
+    t2.style.opacity='0';
+    await sleep(250);
+  }
+
+  async function runStep6(){
+    applyStaticUpTo(5);
+    document.getElementById('stage6').classList.add('active');
+    step = 6;
+    setStatus('步骤 6：把 10.00 × 2⁰ 规格化为 1.00 × 2¹，然后写入结果寄存器，得到最终结果 2.0。');
+    const t=createToken('10.00 × 2⁰','orange big',document.getElementById('addResultBox'));
+    await sleep(60);
+    moveToken(t, document.getElementById('norm1'));
+    await sleep(900);
+    document.getElementById('norm1').classList.add('flash');
+    await sleep(500);
+    document.getElementById('norm2').classList.add('flash');
+    await sleep(500);
+    t.style.opacity='0';
+    const t2=createToken('2.0','orange big',document.getElementById('norm2'));
+    await sleep(60);
+    moveToken(t2, document.getElementById('resultReg'));
+    await sleep(900);
+    t2.style.opacity='0';
+    const rr=document.getElementById('resultReg');
+    rr.textContent='2.0';
+    rr.classList.add('filled');
+    await sleep(200);
+  }
+
+  async function nextStep(){
+    if(locked || step >= maxStep) return;
+    locked = true;
+    if(step===0) await runStep1();
+    else if(step===1) await runStep2();
+    else if(step===2) await runStep3();
+    else if(step===3) await runStep4();
+    else if(step===4) await runStep5();
+    else if(step===5) await runStep6();
+    locked = false;
+  }
+
+  async function startAnimation(){
+    if(locked) return;
+    resetFlow();
+    for(let i=0;i<maxStep;i++){
+      await nextStep();
+      await sleep(350);
+    }
+  }
+
+  resetFlow();
+</script>
+</body>
+</html>

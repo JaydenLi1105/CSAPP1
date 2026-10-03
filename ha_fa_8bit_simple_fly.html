@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>8位半加器 / 全加器 简洁动画</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f4f7fb;
+    color: #23364a;
+  }
+  .wrap {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 18px;
+  }
+  h1 {
+    text-align: center;
+    color: #173d78;
+    margin: 6px 0 8px;
+  }
+  .desc {
+    text-align: center;
+    color: #647789;
+    margin-bottom: 14px;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  button, select {
+    border-radius: 10px;
+    font-size: 15px;
+    padding: 10px 14px;
+  }
+  button {
+    border: none;
+    cursor: pointer;
+    color: white;
+    background: #2f6fed;
+  }
+  button:hover { opacity: .92; }
+  .green { background: #239b59; }
+  .secondary { background: #7c8896; }
+  select {
+    border: 2px solid #c9d9ec;
+    background: white;
+    color: #24415f;
+  }
+
+  .status {
+    background: white;
+    border: 2px solid #d8e4f2;
+    border-radius: 14px;
+    padding: 12px 16px;
+    min-height: 56px;
+    margin-bottom: 16px;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  .board {
+    position: relative;
+    background: white;
+    border: 2px solid #d8e4f2;
+    border-radius: 22px;
+    padding: 22px;
+    min-height: 720px;
+    overflow: hidden;
+  }
+
+  .floating-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  .note {
+    text-align: center;
+    color: #607487;
+    font-size: 14px;
+    margin-bottom: 18px;
+  }
+
+  .input-row, .adder-row, .sum-row {
+    display: grid;
+    grid-template-columns: 110px repeat(8, 1fr);
+    gap: 10px;
+    align-items: center;
+  }
+
+  .row-label {
+    text-align: right;
+    padding-right: 10px;
+    font-weight: 800;
+    color: #294b72;
+    font-size: 18px;
+  }
+
+  .bit {
+    width: 48px;
+    height: 48px;
+    margin: auto;
+    border-radius: 12px;
+    border: 2px solid #c4d5e7;
+    background: #eff5fb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 21px;
+    color: #506478;
+    transition: .25s;
+  }
+  .bit.one {
+    background: #e5f7e9;
+    border-color: #94d3a5;
+    color: #136537;
+  }
+  .bit.zero {
+    background: #eff4fa;
+    color: #53677b;
+  }
+  .bit.hot {
+    border-color: #ffab28;
+    box-shadow: 0 0 0 4px rgba(255,171,40,.15);
+    transform: scale(1.05);
+  }
+
+  .section {
+    margin: 18px 0;
+  }
+  .section-title {
+    text-align: center;
+    color: #294b72;
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+
+  .adder {
+    width: 88px;
+    height: 92px;
+    margin: auto;
+    border: 3px solid #9eb9d8;
+    border-radius: 16px;
+    background: #fbfdff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    position: relative;
+    transition: .25s;
+  }
+  .adder.half {
+    border-color: #87c99c;
+  }
+  .adder.full {
+    border-color: #7fa9de;
+  }
+  .adder.hot {
+    border-color: #ffab28;
+    background: #fff8e9;
+    box-shadow: 0 0 0 5px rgba(255,171,40,.14);
+    transform: translateY(-2px);
+  }
+
+  .adder-main {
+    font-size: 26px;
+    font-weight: 900;
+    color: #285179;
+  }
+  .adder-sub {
+    font-size: 12px;
+    color: #71859a;
+    margin-top: 4px;
+  }
+
+  .cin-badge {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 2px solid #efc24f;
+    background: #fff7e6;
+    color: #9b6800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 900;
+    opacity: 0;
+    transition: .25s;
+  }
+  .cin-badge.show { opacity: 1; }
+
+  .sum {
+    width: 48px;
+    height: 48px;
+    margin: auto;
+    border-radius: 12px;
+    border: 2px dashed #b7cae0;
+    background: #f8fbfe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    font-weight: 900;
+    color: transparent;
+    transition: .25s;
+  }
+  .sum.show {
+    border-style: solid;
+    border-color: #7daae2;
+    background: #eaf2ff;
+    color: #104d8b;
+    box-shadow: 0 0 0 4px rgba(125,170,226,.12);
+  }
+
+  .floating-token {
+    position: absolute;
+    min-width: 42px;
+    height: 42px;
+    padding: 0 10px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+    z-index: 60;
+    transition: left .8s ease, top .8s ease, opacity .2s ease;
+    box-shadow: 0 8px 16px rgba(0,0,0,.08);
+  }
+  .token-a {
+    background: #e8f5ff;
+    border: 2px solid #5aa9ff;
+    color: #17538d;
+  }
+  .token-b {
+    background: #edfbe9;
+    border: 2px solid #6bc46d;
+    color: #256126;
+  }
+  .token-carry {
+    background: #fff7e6;
+    border: 2px solid #efc24f;
+    color: #9a6700;
+    border-radius: 999px;
+  }
+
+  .formula {
+    text-align: center;
+    margin-top: 14px;
+    font-family: Consolas, monospace;
+    color: #53687c;
+    font-size: 15px;
+  }
+
+  .foot {
+    text-align: center;
+    margin-top: 18px;
+    color: #677a8c;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 1300px) {
+    .board { overflow-x: auto; }
+    .input-row, .adder-row, .sum-row {
+      min-width: 1180px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>8 位半加器 / 全加器 动画</h1>
+  <div class="desc">A、B 数字飞入加法器；全加器中 Carry 会继续飞向下一位</div>
+
+  <div class="toolbar">
+    <label style="display:flex;align-items:center;gap:8px;">
+      <span style="font-weight:700;color:#24415f;">模式</span>
+      <select id="modeSelect">
+        <option value="half">半加器 Half Adder</option>
+        <option value="full">全加器 Full Adder</option>
+      </select>
+    </label>
+
+    <label style="display:flex;align-items:center;gap:8px;" id="cinWrap">
+      <span style="font-weight:700;color:#24415f;">初始 Cin</span>
+      <select id="cinSelect">
+        <option value="0" selected>0</option>
+        <option value="1">1</option>
+      </select>
+    </label>
+
+    <button onclick="startAnimation()">开始动画</button>
+    <button class="green" onclick="randomizeData()">随机数据</button>
+    <button class="secondary" onclick="resetAll()">重置</button>
+  </div>
+
+  <div class="status" id="status">
+    准备就绪：选择半加器或全加器，然后点击“开始动画”。
+  </div>
+
+  <div class="board" id="board">
+    <div class="floating-layer" id="floatingLayer"></div>
+
+    <div class="note">
+      左边是低位，右边是高位。全加器中，进位会从当前位飞向右侧下一位。
+    </div>
+
+    <div class="section">
+      <div class="section-title">输入</div>
+
+      <div class="input-row">
+        <div class="row-label">A</div>
+        <div id="a0" class="bit"></div><div id="a1" class="bit"></div><div id="a2" class="bit"></div><div id="a3" class="bit"></div>
+        <div id="a4" class="bit"></div><div id="a5" class="bit"></div><div id="a6" class="bit"></div><div id="a7" class="bit"></div>
+      </div>
+
+      <div class="input-row" style="margin-top:10px;">
+        <div class="row-label">B</div>
+        <div id="b0" class="bit"></div><div id="b1" class="bit"></div><div id="b2" class="bit"></div><div id="b3" class="bit"></div>
+        <div id="b4" class="bit"></div><div id="b5" class="bit"></div><div id="b6" class="bit"></div><div id="b7" class="bit"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">加法器</div>
+
+      <div class="adder-row">
+        <div class="row-label"></div>
+
+        <div class="adder" id="adder0"><div class="cin-badge" id="cin0"></div><div class="adder-main" id="txt0">HA</div><div class="adder-sub">加法器</div></div>
+        <div class="adder" id="adder1"><div class="cin-badge" id="cin1"></div><div class="adder-main" id="txt1">HA</div><div class="adder-sub">加法器</div></div>
+        <div class="adder" id="adder2"><div class="cin-badge" id="cin2"></div><div class="adder-main" id="txt2">HA</div><div class="adder-sub">加法器</div></div>
+        <div class="adder" id="adder3"><div class="cin-badge" id="cin3"></div><div class="adder-main" id="txt3">HA</div><div class="adder-sub">加法器</div></div>
+        <div class="adder" id="adder4"><div class="cin-badge" id="cin4"></div><div class="adder-main" id="txt4">HA</div><div class="adder-sub">加法器</div></div>
+        <div class="adder" id="adder5"><div class="cin-badge" id="cin5"></div><div class="adder-main" id="txt5">HA</div><div class="adder-sub">加法器</div></div>
+        <div class="adder" id="adder6"><div class="cin-badge" id="cin6"></div><div class="adder-main" id="txt6">HA</div><div class="adder-sub">加法器</div></div>
+        <div class="adder" id="adder7"><div class="cin-badge" id="cin7"></div><div class="adder-main" id="txt7">HA</div><div class="adder-sub">加法器</div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">结果</div>
+
+      <div class="sum-row">
+        <div class="row-label">Sum</div>
+        <div id="s0" class="sum"></div><div id="s1" class="sum"></div><div id="s2" class="sum"></div><div id="s3" class="sum"></div>
+        <div id="s4" class="sum"></div><div id="s5" class="sum"></div><div id="s6" class="sum"></div><div id="s7" class="sum"></div>
+      </div>
+    </div>
+
+    <div class="formula" id="formula">
+      半加器：Sum = A ⊕ B　　Carry = A · B
+    </div>
+
+    <div class="foot">
+      半加器：每一位自己算，不接收上一位进位。<br>
+      全加器：当前位算出的 Carry 会继续进入下一位，成为下一位的 Cin。
+    </div>
+  </div>
+</div>
+
+<script>
+  let A = [1,1,0,1,1,0,1,0];
+  let B = [1,0,1,1,0,1,1,1];
+  let animating = false;
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function currentMode() {
+    return document.getElementById('modeSelect').value;
+  }
+
+  function initialCin() {
+    return parseInt(document.getElementById('cinSelect').value, 10);
+  }
+
+  function setBit(id, value) {
+    const el = document.getElementById(id);
+    el.textContent = value;
+    el.className = 'bit ' + (value ? 'one' : 'zero');
+  }
+
+  function renderInputs() {
+    for (let i = 0; i < 8; i++) {
+      setBit('a'+i, A[i]);
+      setBit('b'+i, B[i]);
+    }
+  }
+
+  function resetVisual() {
+    document.getElementById('floatingLayer').innerHTML = '';
+
+    for (let i = 0; i < 8; i++) {
+      document.getElementById('a'+i).classList.remove('hot');
+      document.getElementById('b'+i).classList.remove('hot');
+
+      const adder = document.getElementById('adder'+i);
+      adder.className = 'adder ' + (currentMode() === 'half' ? 'half' : 'full');
+
+      document.getElementById('txt'+i).textContent = currentMode() === 'half' ? 'HA' : 'FA';
+
+      const cin = document.getElementById('cin'+i);
+      cin.textContent = '';
+      cin.className = 'cin-badge';
+
+      const s = document.getElementById('s'+i);
+      s.textContent = '';
+      s.className = 'sum';
+    }
+
+    if (currentMode() === 'half') {
+      document.getElementById('cinWrap').style.opacity = '.45';
+      document.getElementById('formula').textContent = '半加器：Sum = A ⊕ B　　Carry = A · B';
+    } else {
+      document.getElementById('cinWrap').style.opacity = '1';
+      document.getElementById('formula').textContent = '全加器：Sum = A ⊕ B ⊕ Cin　　Carry 会进入下一位';
+    }
+
+    document.getElementById('status').innerHTML =
+      '准备就绪：选择半加器或全加器，然后点击“开始动画”。';
+  }
+
+  function centerOf(el) {
+    const board = document.getElementById('board').getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.left - board.left + r.width / 2,
+      y: r.top - board.top + r.height / 2
+    };
+  }
+
+  function createToken(text, cls, fromEl) {
+    const layer = document.getElementById('floatingLayer');
+    const token = document.createElement('div');
+    token.className = 'floating-token ' + cls;
+    token.textContent = text;
+    layer.appendChild(token);
+
+    const c = centerOf(fromEl);
+    token.style.left = (c.x - token.offsetWidth / 2) + 'px';
+    token.style.top = (c.y - token.offsetHeight / 2) + 'px';
+    return token;
+  }
+
+  function moveToken(token, toEl) {
+    const c = centerOf(toEl);
+    token.style.left = (c.x - token.offsetWidth / 2) + 'px';
+    token.style.top = (c.y - token.offsetHeight / 2) + 'px';
+  }
+
+  async function flyInputsToAdder(i) {
+    const aEl = document.getElementById('a'+i);
+    const bEl = document.getElementById('b'+i);
+    const adder = document.getElementById('adder'+i);
+
+    aEl.classList.add('hot');
+    bEl.classList.add('hot');
+
+    const ta = createToken(String(A[i]), 'token-a', aEl);
+    const tb = createToken(String(B[i]), 'token-b', bEl);
+
+    await sleep(40);
+    moveToken(ta, adder);
+    moveToken(tb, adder);
+
+    await sleep(820);
+
+    ta.style.opacity = '0';
+    tb.style.opacity = '0';
+
+    aEl.classList.remove('hot');
+    bEl.classList.remove('hot');
+  }
+
+  async function animateHalf() {
+    document.getElementById('status').innerHTML =
+      '半加器：8 组 A、B 数字同时飞入 8 个半加器。';
+
+    const tasks = [];
+    for (let i = 0; i < 8; i++) {
+      tasks.push(flyInputsToAdder(i));
+    }
+    await Promise.all(tasks);
+
+    for (let i = 0; i < 8; i++) {
+      document.getElementById('adder'+i).classList.add('hot');
+    }
+
+    await sleep(800);
+
+    for (let i = 0; i < 8; i++) {
+      const sum = A[i] ^ B[i];
+      const s = document.getElementById('s'+i);
+      s.textContent = sum;
+      s.classList.add('show');
+      document.getElementById('adder'+i).classList.remove('hot');
+    }
+
+    document.getElementById('status').innerHTML =
+      '半加器完成：每一位独立计算。<br>Sum = ' +
+      A.map((v,i)=>v^B[i]).join('');
+  }
+
+  async function animateFull() {
+    let cin = initialCin();
+
+    document.getElementById('status').innerHTML =
+      '全加器：从最左边开始，A、B 飞入当前加法器；如果产生 Carry，它会继续飞到右边下一位。';
+
+    for (let i = 0; i < 8; i++) {
+      const adder = document.getElementById('adder'+i);
+
+      if (i === 0) {
+        const badge = document.getElementById('cin0');
+        badge.textContent = 'Cin ' + cin;
+        badge.classList.add('show');
+      }
+
+      await flyInputsToAdder(i);
+
+      adder.classList.add('hot');
+
+      const sum = A[i] ^ B[i] ^ cin;
+      const cout = (A[i] & B[i]) | (cin & (A[i] ^ B[i]));
+
+      document.getElementById('status').innerHTML =
+        '当前位：A=' + A[i] + '，B=' + B[i] + '，Cin=' + cin +
+        ' → Sum=' + sum + '，Carry=' + cout;
+
+      await sleep(600);
+
+      const s = document.getElementById('s'+i);
+      s.textContent = sum;
+      s.classList.add('show');
+
+      if (i < 7) {
+        const carryToken = createToken(String(cout), 'token-carry', adder);
+        const nextAdder = document.getElementById('adder'+(i+1));
+
+        document.getElementById('status').innerHTML =
+          '当前位产生 Carry=' + cout + '，这个进位数字向右移动到下一位。';
+
+        await sleep(60);
+        moveToken(carryToken, nextAdder);
+        await sleep(820);
+
+        const nextCin = document.getElementById('cin'+(i+1));
+        nextCin.textContent = 'Cin ' + cout;
+        nextCin.classList.add('show');
+
+        carryToken.style.opacity = '0';
+      }
+
+      adder.classList.remove('hot');
+      cin = cout;
+      await sleep(250);
+    }
+
+    let carry = initialCin();
+    const sums = [];
+    for (let i = 0; i < 8; i++) {
+      const s = A[i] ^ B[i] ^ carry;
+      const c = (A[i] & B[i]) | (carry & (A[i] ^ B[i]));
+      sums.push(s);
+      carry = c;
+    }
+
+    document.getElementById('status').innerHTML =
+      '全加器完成：进位已经逐级传播到更高位。<br>Sum = ' + sums.join('');
+  }
+
+  async function startAnimation() {
+    if (animating) return;
+    animating = true;
+    resetVisual();
+
+    if (currentMode() === 'half') {
+      await animateHalf();
+    } else {
+      await animateFull();
+    }
+
+    animating = false;
+  }
+
+  function randomizeData() {
+    if (animating) return;
+    A = Array.from({length:8}, () => Math.random() > .5 ? 1 : 0);
+    B = Array.from({length:8}, () => Math.random() > .5 ? 1 : 0);
+    renderInputs();
+    resetVisual();
+  }
+
+  function resetAll() {
+    if (animating) return;
+    A = [1,1,0,1,1,0,1,0];
+    B = [1,0,1,1,0,1,1,1];
+    document.getElementById('cinSelect').value = '0';
+    renderInputs();
+    resetVisual();
+  }
+
+  document.getElementById('modeSelect').addEventListener('change', () => {
+    if (animating) return;
+    resetVisual();
+  });
+
+  renderInputs();
+  resetVisual();
+</script>
+</body>
+</html>
